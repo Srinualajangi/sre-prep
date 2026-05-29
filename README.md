@@ -1,126 +1,724 @@
-# 📹 Content Creation Template — Day 17 (Real Example)
-
-## What Day 17 Looks Like in Your Roadmap
-
-| Block | Topic | Duration |
-|---|---|---|
-| **LeetCode** | Top K Frequent Elements (#347) 🟡 Medium | 30 min |
-| **Main Study** | Linux networking tools — `ss`, `netstat`, `ip`, `iptables`, listening ports, routing tables | 2-3 hrs |
-| **Evening** | Python project: **Port Scanner** — scan ports on a host, report open ports with service names | 2 hrs |
-
-**Now let me show you how this ONE day becomes 4-5 pieces of content — without spending extra time.**
-
----
-
-## 🕐 Full Day Timeline (With Content Woven In)
+# 🔥 INTERVIEW BIBLE V2 — Deep Technical Hands-On Guide
+### Your Second Reference for ALL Technical Interviews
+### Based on Your Resume @ ASM Technologies | Srinu — Linux & Cloud Infrastructure Engineer
+### Created: May 29, 2026
 
 > [!IMPORTANT]
-> The trick: You're NOT adding content creation as separate work. You're just **pressing record** while doing what you were already going to do.
-
-### ⏰ Morning — Before Office (6:00 AM - 7:30 AM)
-
-```
-6:00 AM — Wake up, coffee
-6:10 AM — 🔴 RECORD START (phone on tripod, selfie angle)
-           "Yo, Day 17. Yesterday I was struggling with Group Anagrams,
-            today I've got Top K Frequent Elements. Let's see.
-            Also today I'm diving into Linux networking tools — 
-            ss, netstat, iptables — stuff I actually use at work 
-            but never deeply understood."
-6:12 AM — 🔴 STOP (that's your intro, 2 minutes, done)
-
-6:15 AM — Open LeetCode. 🖥️ SCREEN RECORD START (OBS Studio)
-           Solve Top K Frequent Elements (#347)
-           TALK while you solve. Don't be polished. Just think aloud:
-           "Okay so I need the top K... I could sort but that's n log n...
-            wait, a heap would be better... or actually, bucket sort..."
-6:45 AM — 🖥️ SCREEN RECORD STOP
-
-6:45 AM — 🔴 QUICK PHONE RECORD (30 seconds)
-           "Bro, that heap approach clicked. I was overcomplicating it.
-            The trick is — you don't need to sort everything, 
-            just maintain the top K. Mind = blown."
-6:46 AM — 🔴 STOP
-
-7:00 AM — Get ready for office
-```
-
-**Content captured so far:** Face intro (2 min) + Full LeetCode solve (30 min screen recording) + Quick reaction (30 sec)
+> **How to use this:** This bible goes DEEPER than V1. Every section has **real code you must be able to write or explain on a whiteboard.**
+> You have **2.5 days** — follow the study plan at the end. Practice typing these out, not just reading.
+> This is your **permanent second reference** for all upcoming interviews.
 
 ---
 
-### 🏢 During Office Hours — No Content Creation
+## TABLE OF CONTENTS
 
-Just work. But if something interesting happens related to what you're studying (like you actually use `ss` or `netstat` at work), make a **quick note** on your phone:
+1. [Terraform — Writing Real Infrastructure](#1-terraform-deep-dive)
+2. [Docker — Writing Dockerfiles & Compose](#2-docker-deep-dive)
+3. [Kubernetes — Writing Manifests & Debugging](#3-kubernetes-deep-dive)
+4. [CI/CD — Building Complete Pipelines](#4-cicd-deep-dive)
+5. [Git — Advanced Workflows & Commands](#5-git-mastery)
+6. [Bash Scripting — Production Scripts](#6-bash-scripting)
+7. [Python for DevOps — Real Scripts](#7-python-for-devops)
+8. [Hybrid Cloud — Architecture & Scenarios](#8-hybrid-cloud-concepts)
+9. [🎯 Scenario-Based Questions (The Hard Ones)](#9-scenario-based-questions)
+10. [⏰ 2.5-Day Study Plan](#10-study-plan)
 
+---
+
+## 1. TERRAFORM DEEP DIVE
+
+### 🎯 Your Story (Remind Them)
+> "I manage 100% IaC using Terraform with reusable modules for VPC, EKS, IAM, RDS, and ALB across dev/QA/prod. All infrastructure changes go through PR review and `terraform plan` in CI before any apply."
+
+---
+
+### 1.1 — Writing a VPC from Scratch (MUST KNOW)
+
+**"Write a Terraform config to create a VPC with public and private subnets"** — This is the #1 most asked Terraform question.
+
+```hcl
+# providers.tf
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
 ```
-📝 Phone Notes (30 seconds each):
-- "Used ss -tulnp to debug a port conflict at work today. 
-   Exactly what I'm studying tonight. Wild."
-- "My senior used iptables to block an IP. I should cover this."
+
+```hcl
+# variables.tf
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "vpc_cidr" {
+  description = "CIDR block for VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "environment" {
+  description = "Environment name"
+  type        = string
+  default     = "prod"
+}
+
+variable "azs" {
+  description = "Availability Zones"
+  type        = list(string)
+  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
+}
+```
+
+```hcl
+# main.tf — The Full VPC
+# ===== VPC =====
+resource "aws_vpc" "main" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name        = "${var.environment}-vpc"
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+# ===== INTERNET GATEWAY =====
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "${var.environment}-igw"
+  }
+}
+
+# ===== PUBLIC SUBNETS (one per AZ) =====
+resource "aws_subnet" "public" {
+  count                   = length(var.azs)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 8, count.index)        # 10.0.0.0/24, 10.0.1.0/24, 10.0.2.0/24
+  availability_zone       = var.azs[count.index]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${var.environment}-public-${var.azs[count.index]}"
+    Tier = "public"
+  }
+}
+
+# ===== PRIVATE SUBNETS (one per AZ) =====
+resource "aws_subnet" "private" {
+  count             = length(var.azs)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 10)  # 10.0.10.0/24, 10.0.11.0/24, 10.0.12.0/24
+  availability_zone = var.azs[count.index]
+
+  tags = {
+    Name = "${var.environment}-private-${var.azs[count.index]}"
+    Tier = "private"
+  }
+}
+
+# ===== ELASTIC IP for NAT =====
+resource "aws_eip" "nat" {
+  count  = length(var.azs)
+  domain = "vpc"
+
+  tags = {
+    Name = "${var.environment}-nat-eip-${count.index}"
+  }
+}
+
+# ===== NAT GATEWAY (one per AZ for HA) =====
+resource "aws_nat_gateway" "main" {
+  count         = length(var.azs)
+  allocation_id = aws_eip.nat[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
+
+  tags = {
+    Name = "${var.environment}-nat-${var.azs[count.index]}"
+  }
+
+  depends_on = [aws_internet_gateway.main]
+}
+
+# ===== ROUTE TABLES =====
+# Public route table — routes to Internet Gateway
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name = "${var.environment}-public-rt"
+  }
+}
+
+# Private route tables — route to NAT Gateway
+resource "aws_route_table" "private" {
+  count  = length(var.azs)
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main[count.index].id
+  }
+
+  tags = {
+    Name = "${var.environment}-private-rt-${var.azs[count.index]}"
+  }
+}
+
+# ===== ROUTE TABLE ASSOCIATIONS =====
+resource "aws_route_table_association" "public" {
+  count          = length(var.azs)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "private" {
+  count          = length(var.azs)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private[count.index].id
+}
+```
+
+```hcl
+# outputs.tf
+output "vpc_id" {
+  value = aws_vpc.main.id
+}
+
+output "public_subnet_ids" {
+  value = aws_subnet.public[*].id
+}
+
+output "private_subnet_ids" {
+  value = aws_subnet.private[*].id
+}
+```
+
+> [!TIP]
+> **`cidrsubnet(var.vpc_cidr, 8, count.index)`** — This is a POWER FUNCTION. Know it.
+> `cidrsubnet("10.0.0.0/16", 8, 0)` → `10.0.0.0/24`
+> `cidrsubnet("10.0.0.0/16", 8, 1)` → `10.0.1.0/24`
+> `cidrsubnet("10.0.0.0/16", 8, 10)` → `10.0.10.0/24`
+> The `8` means "add 8 bits to the prefix" (16+8=24), and the last number is the subnet index.
+
+---
+
+### 1.2 — Writing an EC2 Instance with Security Group
+
+```hcl
+# Security Group — Allow SSH + HTTP
+resource "aws_security_group" "web" {
+  name        = "${var.environment}-web-sg"
+  description = "Allow SSH and HTTP"
+  vpc_id      = aws_vpc.main.id
+
+  # SSH from specific IP only (YOUR IP)
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["203.0.113.0/32"]  # Your office IP
+  }
+
+  # HTTP from ALB security group
+  ingress {
+    description     = "HTTP from ALB"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  # All outbound allowed
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.environment}-web-sg"
+  }
+}
+
+# EC2 Instance
+resource "aws_instance" "web" {
+  ami                    = data.aws_ami.amazon_linux.id
+  instance_type          = "t3.medium"
+  subnet_id              = aws_subnet.private[0].id
+  vpc_security_group_ids = [aws_security_group.web.id]
+  key_name               = var.key_name
+  iam_instance_profile   = aws_iam_instance_profile.web.name
+
+  root_block_device {
+    volume_size = 30
+    volume_type = "gp3"
+    encrypted   = true
+  }
+
+  user_data = <<-EOF
+    #!/bin/bash
+    yum update -y
+    yum install -y httpd
+    systemctl start httpd
+    systemctl enable httpd
+    echo "<h1>Hello from $(hostname)</h1>" > /var/www/html/index.html
+  EOF
+
+  tags = {
+    Name        = "${var.environment}-web-01"
+    Environment = var.environment
+    Role        = "webserver"
+  }
+}
+
+# Data source — latest Amazon Linux 2 AMI
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+}
 ```
 
 ---
 
-### 🌆 Evening — Main Study Block (7:00 PM - 10:00 PM)
+### 1.3 — Writing an S3 Bucket with Policies
+
+```hcl
+resource "aws_s3_bucket" "app_data" {
+  bucket = "${var.environment}-app-data-${data.aws_caller_identity.current.account_id}"
+
+  tags = {
+    Name        = "${var.environment}-app-data"
+    Environment = var.environment
+  }
+}
+
+# Enable versioning
+resource "aws_s3_bucket_versioning" "app_data" {
+  bucket = aws_s3_bucket.app_data.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Enable server-side encryption
+resource "aws_s3_bucket_server_side_encryption_configuration" "app_data" {
+  bucket = aws_s3_bucket.app_data.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "aws:kms"
+    }
+  }
+}
+
+# Block all public access
+resource "aws_s3_bucket_public_access_block" "app_data" {
+  bucket = aws_s3_bucket.app_data.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Lifecycle rule — move to IA after 90 days, Glacier after 180 days
+resource "aws_s3_bucket_lifecycle_configuration" "app_data" {
+  bucket = aws_s3_bucket.app_data.id
+
+  rule {
+    id     = "archive-old-data"
+    status = "Enabled"
+
+    transition {
+      days          = 90
+      storage_class = "STANDARD_IA"
+    }
+
+    transition {
+      days          = 180
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = 365
+    }
+  }
+}
+
+data "aws_caller_identity" "current" {}
+```
+
+---
+
+### 1.4 — Writing an RDS Instance
+
+```hcl
+resource "aws_db_subnet_group" "main" {
+  name       = "${var.environment}-db-subnet-group"
+  subnet_ids = aws_subnet.private[*].id
+
+  tags = {
+    Name = "${var.environment}-db-subnet-group"
+  }
+}
+
+resource "aws_security_group" "rds" {
+  name   = "${var.environment}-rds-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description     = "MySQL from app tier"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.web.id]  # Only app tier can access
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_db_instance" "main" {
+  identifier     = "${var.environment}-mysql"
+  engine         = "mysql"
+  engine_version = "8.0"
+  instance_class = "db.t3.medium"
+
+  allocated_storage     = 50
+  max_allocated_storage = 100   # Auto-scaling storage
+  storage_type          = "gp3"
+  storage_encrypted     = true
+
+  db_name  = "appdb"
+  username = "admin"
+  password = var.db_password   # From terraform.tfvars or Secrets Manager
+
+  multi_az               = true   # HA — standby in another AZ
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.rds.id]
+
+  backup_retention_period = 7
+  backup_window           = "03:00-04:00"
+  maintenance_window      = "sun:04:00-sun:05:00"
+
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "${var.environment}-mysql-final"
+
+  tags = {
+    Name        = "${var.environment}-mysql"
+    Environment = var.environment
+  }
+}
+```
+
+---
+
+### 1.5 — Writing a Terraform Module (CRITICAL SKILL)
+
+**They WILL ask: "How do you structure a Terraform module?"**
 
 ```
-7:00 PM — Freshen up, food, settle in
+modules/
+└── ec2-webserver/
+    ├── main.tf          # Resource definitions
+    ├── variables.tf     # Input variables
+    ├── outputs.tf       # Output values
+    └── README.md        # Usage documentation
+```
 
-7:30 PM — 🖥️ SCREEN RECORD START (OBS Studio, screen + small face cam)
-           MAIN STUDY: Linux Networking Tools
+```hcl
+# modules/ec2-webserver/variables.tf
+variable "instance_type" {
+  description = "EC2 instance type"
+  type        = string
+  default     = "t3.medium"
 
-           Structure while recording:
-           ┌─────────────────────────────────────────────┐
-           │  "Alright, Day 17 main topic — Linux        │
-           │   networking tools. As a Linux admin,       │
-           │   I use some of these daily but let me      │
-           │   actually understand them deeply today."   │
-           │                                             │
-           │  1. ss (socket statistics)                  │
-           │     - ss -tulnp → show all listening ports  │
-           │     - ss -s → socket summary                │
-           │     - "At work today I used this to find    │
-           │       which process was holding port 8080"  │
-           │                                             │
-           │  2. netstat (the old school way)            │
-           │     - netstat -an → all connections         │
-           │     - Compare: ss vs netstat speed          │
-           │                                             │
-           │  3. ip command                              │
-           │     - ip addr show                          │
-           │     - ip route show                         │
-           │     - ip link show                          │
-           │                                             │
-           │  4. iptables basics                         │
-           │     - List rules: iptables -L -n            │
-           │     - "My senior blocked an IP today,       │
-           │       let me show you how"                  │
-           │                                             │
-           │  🎤 REAL TALK MOMENT (while studying):      │
-           │  "Honestly, I've been using netstat for     │
-           │   2 years and never knew ss exists.         │
-           │   It's literally faster. I feel stupid      │
-           │   but also — this is why I'm doing this."   │
-           └─────────────────────────────────────────────┘
+  validation {
+    condition     = contains(["t3.small", "t3.medium", "t3.large", "m5.large"], var.instance_type)
+    error_message = "Instance type must be one of: t3.small, t3.medium, t3.large, m5.large"
+  }
+}
 
-8:30 PM — 🖥️ SCREEN RECORD STOP (you now have ~60 min of study footage)
+variable "environment" {
+  type = string
+}
 
-8:30 PM — 5 min break
+variable "subnet_id" {
+  type = string
+}
 
-8:35 PM — 🖥️ SCREEN RECORD START
-           PYTHON PROJECT: Port Scanner
+variable "security_group_ids" {
+  type = list(string)
+}
 
-           ┌─────────────────────────────────────────────┐
-           │  "Now let me build something with what      │
-           │   I just learned. A port scanner in Python."│
-           │                                             │
-           │  - Start with empty file: port_scanner.py   │
-           │  - import socket                            │
-           │  - Write the scan function live             │
-           │  - Hit errors? KEEP THEM IN. Don't edit out │
-           │  - "Oh wait, I need to handle timeout...    │
-           │    let me add socket.settimeout(1)"         │
+variable "instance_count" {
+  type    = number
+  default = 1
+}
+```
+
+```hcl
+# modules/ec2-webserver/main.tf
+resource "aws_instance" "web" {
+  count                  = var.instance_count
+  ami                    = data.aws_ami.amazon_linux.id
+  instance_type          = var.instance_type
+  subnet_id              = var.subnet_id
+  vpc_security_group_ids = var.security_group_ids
+
+  tags = {
+    Name = "${var.environment}-web-${count.index + 1}"
+  }
+}
+
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+}
+```
+
+```hcl
+# modules/ec2-webserver/outputs.tf
+output "instance_ids" {
+  value = aws_instance.web[*].id
+}
+
+output "private_ips" {
+  value = aws_instance.web[*].private_ip
+}
+```
+
+```hcl
+# Calling the module from environments/prod/main.tf
+module "web_servers" {
+  source = "../../modules/ec2-webserver"
+
+  instance_type      = "m5.large"
+  instance_count     = 3
+  environment        = "prod"
+  subnet_id          = module.vpc.private_subnet_ids[0]
+  security_group_ids = [aws_security_group.web.id]
+}
+
+# Accessing module outputs
+output "web_server_ips" {
+  value = module.web_servers.private_ips
+}
+```
+
+---
+
+### 1.6 — Terraform Functions You Must Know
+
+```hcl
+# ===== STRING FUNCTIONS =====
+upper("hello")                          # "HELLO"
+lower("HELLO")                          # "hello"
+format("Hello, %s!", "Srinu")           # "Hello, Srinu!"
+join(", ", ["a", "b", "c"])             # "a, b, c"
+split(",", "a,b,c")                     # ["a", "b", "c"]
+replace("hello world", "world", "tf")   # "hello tf"
+trimspace("  hello  ")                  # "hello"
+
+# ===== COLLECTION FUNCTIONS =====
+length(["a", "b", "c"])                 # 3
+element(["a", "b", "c"], 1)             # "b"
+contains(["a", "b", "c"], "b")          # true
+flatten([["a","b"], ["c"]])             # ["a", "b", "c"]
+merge({a=1}, {b=2})                     # {a=1, b=2}
+lookup({a=1, b=2}, "a", 0)             # 1
+keys({a=1, b=2})                        # ["a", "b"]
+values({a=1, b=2})                      # [1, 2]
+zipmap(["a","b"], [1,2])                # {a=1, b=2}
+
+# ===== NUMERIC FUNCTIONS =====
+max(5, 12, 9)                           # 12
+min(5, 12, 9)                           # 5
+ceil(4.3)                               # 5
+floor(4.9)                              # 4
+
+# ===== NETWORK FUNCTIONS =====
+cidrsubnet("10.0.0.0/16", 8, 0)         # "10.0.0.0/24"
+cidrhost("10.0.1.0/24", 5)              # "10.0.1.5"
+cidrnetmask("10.0.0.0/16")              # "255.255.0.0"
+
+# ===== CONDITIONAL =====
+var.environment == "prod" ? 3 : 1        # Ternary operator
+
+# ===== for_each vs count =====
+# count — use when instances are identical
+resource "aws_instance" "web" {
+  count         = 3
+  instance_type = "t3.medium"
+  tags = { Name = "web-${count.index + 1}" }
+}
+
+# for_each — use when instances differ (preferred)
+variable "instances" {
+  default = {
+    web    = "t3.medium"
+    api    = "t3.large"
+    worker = "m5.xlarge"
+  }
+}
+
+resource "aws_instance" "app" {
+  for_each      = var.instances
+  instance_type = each.value
+  tags = { Name = each.key }
+}
+```
+
+---
+
+### 1.7 — Terraform Interview Q&A (Deep)
+
+**Q: "What is `terraform taint` and when would you use it?"**
+> "`terraform taint` marks a resource for destruction and recreation on the next `apply`. I use it when a resource is in a bad state — for example, an EC2 instance that's running but the user_data didn't execute properly. In newer Terraform versions (1.5+), `taint` is replaced by `terraform apply -replace=aws_instance.web` which is more explicit."
+
+**Q: "Explain `count` vs `for_each`. When do you use which?"**
+> "`count` creates resources by index number — `[0]`, `[1]`, `[2]`. The problem: if you delete index 1, resources at index 2+ get shuffled, causing unnecessary destroy/recreate. `for_each` creates resources by key — each resource is identified by a stable name, not a number. If you remove one, others are unaffected. **I always use `for_each` when resources might be added/removed independently.** I only use `count` for identical resources or conditional creation (`count = var.create_resource ? 1 : 0`)."
+
+**Q: "How do you import existing AWS resources into Terraform?"**
+> "Step 1: Write the resource block in your `.tf` file matching the existing resource's config. Step 2: Run `terraform import aws_instance.web i-0abc123def`. This adds the resource to state. Step 3: Run `terraform plan` to verify no changes are detected — meaning your config matches reality. If there are diffs, adjust your config. In Terraform 1.5+, you can use `import` blocks directly in HCL:
+```hcl
+import {
+  to = aws_instance.web
+  id = "i-0abc123def"
+}
+```
+> Then run `terraform plan` with `-generate-config-out=generated.tf` to auto-generate the config."
+
+**Q: "What are `data` sources in Terraform?"**
+> "Data sources let you READ existing infrastructure that Terraform doesn't manage. For example, I use `data.aws_ami` to fetch the latest Amazon Linux AMI ID, `data.aws_vpc` to reference an existing VPC, or `data.aws_caller_identity` to get the current AWS account ID. Data sources are read-only — they never create or modify resources."
+
+**Q: "How do you handle secrets in Terraform?"**
+> "Never hardcode secrets in `.tf` files. I use three approaches: (1) `terraform.tfvars` files that are in `.gitignore`, (2) Environment variables like `TF_VAR_db_password`, (3) For production, I use `data.aws_secretsmanager_secret_version` to fetch secrets from AWS Secrets Manager at plan/apply time. The state file also contains sensitive values, so we encrypt it at rest in S3."
+
+**Q: "What is a `lifecycle` block?"**
+> "It controls resource behavior:
+```hcl
+lifecycle {
+  create_before_destroy = true   # Create new before destroying old (zero-downtime)
+  prevent_destroy       = true   # Prevent accidental deletion (use for RDS, S3)
+  ignore_changes        = [tags] # Ignore changes made outside Terraform
+}
+```
+> I use `prevent_destroy` on production databases and S3 buckets. I use `create_before_destroy` on resources behind load balancers for zero-downtime replacements."
+
+**Q: "Explain Terraform workspaces"**
+> "Workspaces let you manage multiple environments with the same configuration but separate state files. `terraform workspace new dev` creates a dev workspace. I can reference the workspace name with `terraform.workspace` in my config — for example, setting `instance_type = terraform.workspace == \"prod\" ? \"m5.large\" : \"t3.medium\"`. However, in my current setup at ASM, we use **separate directories** per environment instead of workspaces — it gives better isolation and clearer PR reviews."
+
+---
+
+## 2. DOCKER DEEP DIVE
+
+### 🎯 Your Story
+> "I containerized 5 legacy VM-based applications into Docker containers for our Kubernetes migration. I write multi-stage Dockerfiles to keep images small, use docker-compose for local development, and push images to ECR/ACR for production deployments."
+
+---
+
+### 2.1 — Writing Dockerfiles (You WILL Be Asked to Write One)
+
+#### Python Flask Application
+
+```dockerfile
+# ===== Stage 1: Builder =====
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Copy only requirements first (layer caching!)
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# ===== Stage 2: Runtime =====
+FROM python:3.11-slim AS runtime
+
+# Security: don't run as root
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /root/.local /root/.local
+COPY --from=builder /app .
+
+# Make sure scripts in .local are usable
+ENV PATH=/root/.local/bin:$PATH
+
+# Expose port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:5000/health || exit 1
+
+# Switch to non-root user
+USER appuser
+
+# Run the application
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "app:app"]
+```
+
+#### Node.js Application
+
+```dockerfile
+# ===== Stage 1: Build =====
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files first (layer caching)
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy source
+COPY . .
+
+# ===== Stage 2: Runtime =====
+FROM node:20-alpine AS runtime
+
+# Security
+RUN addgroup -S appgroup && adduser -S appuser -G appgrou           │    let me add socket.settimeout(1)"         │
            │  - Add service name resolution              │
            │  - Add argparse for CLI                     │
            │  - Test it: scan localhost, scan a server   │
